@@ -19,6 +19,7 @@ contract NftMystery is ERC721URIStorage, Ownable {
         uint256 total_supply;
         uint256 total_sold;
         uint256 price; // in wei
+        uint256 datetimeSoldOut; // If all characters have been sold. (timestamp)
     }
     mapping(uint256 => batch) public batchs;
     
@@ -44,8 +45,7 @@ contract NftMystery is ERC721URIStorage, Ownable {
     constructor() ERC721("MyNFT", "NFT") {
         //init batch
         batchs[1].name = "Batch 1";
-        batchs[1].release_date = 1652115158; //Wednesday, 15 June 2022 00:00:00
-        // batchs[1].release_date = 1655222400; //Wednesday, 15 June 2022 00:00:00
+        batchs[1].release_date = 1655222400; //Wednesday, 15 June 2022 00:00:00
         batchs[1].total_supply = 1111;
         batchs[1].total_sold = 0;
         batchs[1].price = 100000000000000;
@@ -103,14 +103,20 @@ contract NftMystery is ERC721URIStorage, Ownable {
         }
         require(validBatch, "Batch Id not Valid.");
 
+        //check stock
+        require(batchs[batchId].datetimeSoldOut == 0, "Character out of stock.");
+
         // minimum value allowed to be sent
         require(msg.value == batchs[batchId].price, "Please enter the same price to continue your purchase."); // in wei
         
         // get random index based on batch
-        uint256 randomIndex = randomIndexByBatch(batchId);
+        uint256 randomIndex = 0;
+        // uint256 randomIndex = randomIndexByBatch(batchId);
 
-        // is sold
-        require(AllCharacterBatchs[batchId][randomIndex].sold != true, "Invalid random index.");
+        console.log("random index >>", randomIndex);
+
+        // check index character bath
+        require(AllCharacterBatchs[batchId].length >= randomIndex, "Invalid random index.");
 
         // update nft to sold status
         AllCharacterBatchs[batchId][randomIndex].sold = true;
@@ -120,6 +126,12 @@ contract NftMystery is ERC721URIStorage, Ownable {
 
         //update batch sold
         batchs[batchId].total_sold += 1;
+
+        //check sold out
+        if(batchs[batchId].total_supply == batchs[batchId].total_sold) {
+            // store datetime sold out by batch
+            batchs[batchId].datetimeSoldOut = block.timestamp;
+        }
 
         // mapping data into buyerCollections
         buyerCollections memory buyerCollection = buyerCollections(batchId, AllCharacterBatchs[batchId][randomIndex].token, false);
@@ -174,9 +186,15 @@ contract NftMystery is ERC721URIStorage, Ownable {
 
         //loop all buyer collection
         for(uint256 i=0; i < myTotalCollections(); i++) {
-            //check batch release & sold out
-            if(block.timestamp >= batchs[AllBuyerCollections[msg.sender][i].batchId].release_date 
-            && batchs[AllBuyerCollections[msg.sender][i].batchId].total_supply == batchs[AllBuyerCollections[msg.sender][i].batchId].total_sold) {
+            //check sold out, reveal after 3 days
+            uint256 delayDays = 3 days; // 1209600 or 2*7*24*60*60
+            uint256 dateCooldown = batchs[AllBuyerCollections[msg.sender][i].batchId].datetimeSoldOut + delayDays;
+
+            console.log("date cooldown >>", dateCooldown);
+
+            //reveal if all character batch sold out or after release date (campaign end)
+            if((batchs[AllBuyerCollections[msg.sender][i].batchId].datetimeSoldOut > 0 && block.timestamp >= dateCooldown)
+            || (block.timestamp >= batchs[AllBuyerCollections[msg.sender][i].batchId].release_date)) {
                 //update nft token to reveal true
                 AllBuyerCollections[msg.sender][i].reveal = true;
             }
@@ -184,6 +202,11 @@ contract NftMystery is ERC721URIStorage, Ownable {
     }
 
     // returning the contract's balance in wei
+    function getBalance() public view returns(uint){
+        return address(this).balance;
+    }
+
+    //tranfer eth from contract to owner
     function getBalance() public view returns(uint){
         return address(this).balance;
     }
