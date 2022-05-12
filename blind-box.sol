@@ -40,12 +40,12 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
     constructor() ERC721("MyBlindBox", "MBB") {
         //init batch
         batchs[1].name = "Batch 1";
-        batchs[1].release_date = 1651334400; //Wednesday, 1 May 2022 00:00:00 - testing only
-        // batchs[1].release_date = 1655222400; //Wednesday, 15 June 2022 00:00:00
+        // batchs[1].release_date = 1651334400; //Wednesday, 1 May 2022 00:00:00 - testing only
+        batchs[1].release_date = 1655222400; //Wednesday, 15 June 2022 00:00:00
         batchs[1].total_supply = 1111;
         batchs[1].total_sold = 0;
         batchs[1].price = 100000000000000; // wei
-        batchs[1].datetimeSoldOut = 1651852800; //Wednesday, 7 May 2022 00:00:00 - testing only
+        // batchs[1].datetimeSoldOut = 1651852800; //Wednesday, 7 May 2022 00:00:00 - testing only
         batchs[1].thumbnailUri = "https://gateway.pinata.cloud/ipfs/QmU2DQfKz88LjH25p2pDrEfVndZ7bTXRtsXetE7UBNRrNh";
 
         batchs[2].name = "Batch 2";
@@ -136,10 +136,10 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
         );
 
         //check stock - comment if u want testing
-        // require(
-        //     batchs[_batchId].datetimeSoldOut == 0,
-        //     "Character out of stock."
-        // );
+        require(
+            batchs[_batchId].datetimeSoldOut == 0,
+            "Character out of stock."
+        );
 
         // minimum value allowed to be sent
         require(
@@ -175,6 +175,7 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
         super._burn(tokenId);
     }
 
+    // return uri with random index based on token ID
     function tokenURI(uint256 _tokenID)
         public
         view
@@ -183,8 +184,10 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
     {
         uint256 batchId = getBatch(_tokenID);
 
+        // check current metadata
         require(bytes(batchs[batchId].metadataUri).length > 0, "Batch metadata is null");
         
+        // if reveal not set yet, return batch thumnail
         if(batchs[batchId].randomNumber == 0) {
             // return thumnail image
             return batchs[batchId].thumbnailUri;
@@ -194,10 +197,9 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
         string memory tokenIdMirror = Strings.toString(((_tokenID + batchs[batchId].randomNumber) % batchs[batchId].total_supply) + 1);
 
         return string(abi.encodePacked(url,"/",tokenIdMirror));
-
-        // return super.tokenURI(_tokenID);
     }
 
+    // get batch based on token ID
     function getBatch(uint256 _tokenID) public view returns(uint256) {
         require(_exists(_tokenID), "Token ID not exist.");
 
@@ -216,63 +218,6 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
             validBatch = true;
         }
         require(validBatch, "Batch Id not Valid.");
-    }
-
-    // get single collection by index (use myTotalCollections as reference)
-    function myCollections(uint256 _index)
-        public
-        returns (
-            uint256,
-            uint256,
-            uint256,
-            bool
-        )
-    {
-        // check collection based on address
-        require(myTotalCollections() > 0, "No purchase record.");
-
-        // check index
-        require(myTotalCollections() > _index, "Index is invalid.");
-
-        //update uri, if batch has sold out, batch has release and 3 days after sold out
-        if (
-            AllBuyerCollections[msg.sender][_index].reveal == false && // check existing tokenUri
-            canBatchReveal(AllBuyerCollections[msg.sender][_index].batchId)
-        ) {
-            //check reveal requirement
-            // set tokenUri - refer the index data in batch metadata
-            AllBuyerCollections[msg.sender][_index]
-                .tokenUri = getRandomTokenUri(
-                AllBuyerCollections[msg.sender][_index].batchId,
-                AllBuyerCollections[msg.sender][_index].tokenID
-            );
-
-            //update to reveal - mark as reveal
-            AllBuyerCollections[msg.sender][_index].reveal = true;
-        }
-
-        return (
-            AllBuyerCollections[msg.sender][_index].batchId,
-            AllBuyerCollections[msg.sender][_index].tokenID,
-            AllBuyerCollections[msg.sender][_index].tokenUri,
-            AllBuyerCollections[msg.sender][_index].reveal
-        );
-    }
-
-    // get total collection
-    function myTotalCollections() public view returns (uint256) {
-        return AllBuyerCollections[msg.sender].length;
-    }
-
-    //generate random number based on token transaction
-    function getRandomTokenUri(uint256 _batchId, uint256 tokenID)
-        private
-        view
-        returns (uint256)
-    {
-        return
-            ((tokenID + batchs[_batchId].randomNumber) %
-            batchs[_batchId].total_supply) + 1;
     }
 
     // check requirement batch reveal - must sold out, after 3 days and after release date
@@ -298,5 +243,45 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
     //tranfer eth from contract to owner
     function ownerWithdraw() public onlyOwner {
         payable(owner()).transfer(address(this).balance);
+    }
+
+    
+
+    // get single collection by index (use myTotalCollections as reference)
+    function myCollections(uint256 _index)
+        public
+        returns (
+            uint256,
+            uint256,
+            uint256,
+            bool
+        )
+    {
+        // check collection based on address
+        require(myTotalCollections() > 0, "No purchase record.");
+
+        // check index
+        require(myTotalCollections() > _index, "Index is invalid.");
+
+        //update uri, if batch has sold out, batch has release and 3 days after sold out
+        if (
+            AllBuyerCollections[msg.sender][_index].reveal == false && // check existing tokenUri
+            canBatchReveal(AllBuyerCollections[msg.sender][_index].batchId)
+        ) {
+            //update to reveal - mark as reveal
+            AllBuyerCollections[msg.sender][_index].reveal = true;
+        }
+
+        return (
+            AllBuyerCollections[msg.sender][_index].batchId,
+            AllBuyerCollections[msg.sender][_index].tokenID,
+            AllBuyerCollections[msg.sender][_index].tokenUri,
+            AllBuyerCollections[msg.sender][_index].reveal
+        );
+    }
+
+    // get total collection
+    function myTotalCollections() public view returns (uint256) {
+        return AllBuyerCollections[msg.sender].length;
     }
 }
