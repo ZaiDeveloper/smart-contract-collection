@@ -5,9 +5,10 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "hardhat/console.sol";
 
-contract NftBlinkBox is ERC721URIStorage, Ownable {
+contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
     // unique token counter
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
@@ -20,6 +21,7 @@ contract NftBlinkBox is ERC721URIStorage, Ownable {
         uint256 total_sold;
         uint256 price; // in wei
         uint256 datetimeSoldOut; // If all characters have been sold. (timestamp)
+        string thumbnailUri;
         string metadataUri;
         uint256 randomNumber;
     }
@@ -28,34 +30,53 @@ contract NftBlinkBox is ERC721URIStorage, Ownable {
     //store buyer collection
     struct buyerCollections {
         uint256 batchId;
-        uint256 tokenTransaction;
+        uint256 tokenID;
         uint256 tokenUri;
         bool reveal;
     }
     mapping(address => buyerCollections[]) public AllBuyerCollections; //address - buyer address
 
     //set constructor
-    constructor() ERC721("MyNFT", "NFT") {
+    constructor() ERC721("MyBlindBox", "MBB") {
         //init batch
         batchs[1].name = "Batch 1";
-        // batchs[1].release_date = 1651334400; //Wednesday, 1 May 2022 00:00:00 - testing only
-        batchs[1].release_date = 1655222400; //Wednesday, 15 June 2022 00:00:00
+        batchs[1].release_date = 1651334400; //Wednesday, 1 May 2022 00:00:00 - testing only
+        // batchs[1].release_date = 1655222400; //Wednesday, 15 June 2022 00:00:00
         batchs[1].total_supply = 1111;
         batchs[1].total_sold = 0;
         batchs[1].price = 100000000000000; // wei
-        // batchs[1].datetimeSoldOut = 1651852800; //Wednesday, 7 May 2022 00:00:00 - testing only
+        batchs[1].datetimeSoldOut = 1651852800; //Wednesday, 7 May 2022 00:00:00 - testing only
+        batchs[1].thumbnailUri = "https://gateway.pinata.cloud/ipfs/QmU2DQfKz88LjH25p2pDrEfVndZ7bTXRtsXetE7UBNRrNh";
 
         batchs[2].name = "Batch 2";
         batchs[2].release_date = 1655827200; //Wednesday, 22 June 2022 00:00:00
         batchs[2].total_supply = 2222;
         batchs[2].total_sold = 0;
         batchs[2].price = 100000000000000; // wei
+        batchs[2].thumbnailUri = "https://gateway.pinata.cloud/ipfs/QmU2DQfKz88LjH25p2pDrEfVndZ7bTXRtsXetE7UBNRrNh";
 
         batchs[3].name = "Batch 3";
         batchs[3].release_date = 1656604800; //Wednesday, 1 July 2022 00:00:00
         batchs[3].total_supply = 4444;
         batchs[3].total_sold = 0;
         batchs[3].price = 100000000000000; // wei
+        batchs[3].thumbnailUri = "https://gateway.pinata.cloud/ipfs/QmU2DQfKz88LjH25p2pDrEfVndZ7bTXRtsXetE7UBNRrNh";
+    }
+
+    // add batch
+    function addBatch(uint256 _batchId, string memory _name, uint256 _releaseDate, uint256 _totalSupply, uint256 _price, string memory _thumbnailUri)
+        public
+        onlyOwner
+    {
+        // check existing batch
+        require(batchs[_batchId].total_supply == 0, "Batch metadata uri already set.");
+
+        batchs[_batchId].name = _name;
+        batchs[_batchId].release_date = _releaseDate; //Wednesday, 22 June 2022 00:00:00
+        batchs[_batchId].total_supply = _totalSupply;
+        batchs[_batchId].total_sold = 0;
+        batchs[_batchId].price = _price; // wei
+        batchs[_batchId].thumbnailUri = _thumbnailUri; 
     }
 
     // update metadata uri per batch
@@ -73,8 +94,8 @@ contract NftBlinkBox is ERC721URIStorage, Ownable {
         batchs[_batchId].metadataUri = _uri;
     }
 
-    // set random number for each batch
-    function setRandomTokenUri(uint256 _batchId) public onlyOwner {
+    // set reveal random number for each batch
+    function setReveal(uint256 _batchId) public onlyOwner {
         // check current batch random number
         require(
             batchs[_batchId].randomNumber == 0,
@@ -114,11 +135,11 @@ contract NftBlinkBox is ERC721URIStorage, Ownable {
             "Batch still not release yet."
         );
 
-        //check stock
-        require(
-            batchs[_batchId].datetimeSoldOut == 0,
-            "Character out of stock."
-        );
+        //check stock - comment if u want testing
+        // require(
+        //     batchs[_batchId].datetimeSoldOut == 0,
+        //     "Character out of stock."
+        // );
 
         // minimum value allowed to be sent
         require(
@@ -137,16 +158,55 @@ contract NftBlinkBox is ERC721URIStorage, Ownable {
 
         //set a new token id for the token to be minted
         _tokenIdCounter.increment();
-        uint256 tokenTransaction = _tokenIdCounter.current();
+        uint256 tokenID = _tokenIdCounter.current();
+        _safeMint(msg.sender, tokenID); //mint the token
 
         // mapping data into buyerCollections
         buyerCollections memory buyerCollection = buyerCollections(
             _batchId,
-            tokenTransaction,
+            tokenID,
             0,
             false
         );
         AllBuyerCollections[msg.sender].push(buyerCollection);
+    }
+
+    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+        super._burn(tokenId);
+    }
+
+    function tokenURI(uint256 _tokenID)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        uint256 batchId = getBatch(_tokenID);
+
+        require(bytes(batchs[batchId].metadataUri).length > 0, "Batch metadata is null");
+        
+        if(batchs[batchId].randomNumber == 0) {
+            // return thumnail image
+            return batchs[batchId].thumbnailUri;
+        }
+
+        string memory url = batchs[batchId].metadataUri;
+        string memory tokenIdMirror = Strings.toString(((_tokenID + batchs[batchId].randomNumber) % batchs[batchId].total_supply) + 1);
+
+        return string(abi.encodePacked(url,"/",tokenIdMirror));
+
+        // return super.tokenURI(_tokenID);
+    }
+
+    function getBatch(uint256 _tokenID) public view returns(uint256) {
+        require(_exists(_tokenID), "Token ID not exist.");
+
+        if(_tokenID <= 1111) {
+            return 1;
+        } else if (_tokenID > 1111 && _tokenID <= 2222) {
+            return 2;
+        }
+        return 3;
     }
 
     // check batch validation
@@ -184,7 +244,7 @@ contract NftBlinkBox is ERC721URIStorage, Ownable {
             AllBuyerCollections[msg.sender][_index]
                 .tokenUri = getRandomTokenUri(
                 AllBuyerCollections[msg.sender][_index].batchId,
-                AllBuyerCollections[msg.sender][_index].tokenTransaction
+                AllBuyerCollections[msg.sender][_index].tokenID
             );
 
             //update to reveal - mark as reveal
@@ -193,7 +253,7 @@ contract NftBlinkBox is ERC721URIStorage, Ownable {
 
         return (
             AllBuyerCollections[msg.sender][_index].batchId,
-            AllBuyerCollections[msg.sender][_index].tokenTransaction,
+            AllBuyerCollections[msg.sender][_index].tokenID,
             AllBuyerCollections[msg.sender][_index].tokenUri,
             AllBuyerCollections[msg.sender][_index].reveal
         );
@@ -205,14 +265,14 @@ contract NftBlinkBox is ERC721URIStorage, Ownable {
     }
 
     //generate random number based on token transaction
-    function getRandomTokenUri(uint256 _batchId, uint256 _tokenTransction)
+    function getRandomTokenUri(uint256 _batchId, uint256 tokenID)
         private
         view
         returns (uint256)
     {
         return
-            (_tokenTransction + batchs[_batchId].randomNumber) %
-            batchs[_batchId].total_supply;
+            ((tokenID + batchs[_batchId].randomNumber) %
+            batchs[_batchId].total_supply) + 1;
     }
 
     // check requirement batch reveal - must sold out, after 3 days and after release date
