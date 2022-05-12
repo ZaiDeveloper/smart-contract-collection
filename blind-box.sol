@@ -27,44 +27,11 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
     }
     mapping(uint256 => batch) public batchs; // uint256 - batch id
 
-    //store buyer collection
-    struct buyerCollections {
-        uint256 batchId;
-        uint256 tokenID;
-        uint256 tokenUri;
-        bool reveal;
-    }
-    mapping(address => buyerCollections[]) public AllBuyerCollections; //address - buyer address
-
     //set constructor
-    constructor() ERC721("MyBlindBox", "MBB") {
-        //init batch
-        batchs[1].name = "Batch 1";
-        // batchs[1].release_date = 1651334400; //Wednesday, 1 May 2022 00:00:00 - testing only
-        batchs[1].release_date = 1655222400; //Wednesday, 15 June 2022 00:00:00
-        batchs[1].total_supply = 1111;
-        batchs[1].total_sold = 0;
-        batchs[1].price = 100000000000000; // wei
-        // batchs[1].datetimeSoldOut = 1651852800; //Wednesday, 7 May 2022 00:00:00 - testing only
-        batchs[1].thumbnailUri = "https://gateway.pinata.cloud/ipfs/QmU2DQfKz88LjH25p2pDrEfVndZ7bTXRtsXetE7UBNRrNh";
-
-        batchs[2].name = "Batch 2";
-        batchs[2].release_date = 1655827200; //Wednesday, 22 June 2022 00:00:00
-        batchs[2].total_supply = 2222;
-        batchs[2].total_sold = 0;
-        batchs[2].price = 100000000000000; // wei
-        batchs[2].thumbnailUri = "https://gateway.pinata.cloud/ipfs/QmU2DQfKz88LjH25p2pDrEfVndZ7bTXRtsXetE7UBNRrNh";
-
-        batchs[3].name = "Batch 3";
-        batchs[3].release_date = 1656604800; //Wednesday, 1 July 2022 00:00:00
-        batchs[3].total_supply = 4444;
-        batchs[3].total_sold = 0;
-        batchs[3].price = 100000000000000; // wei
-        batchs[3].thumbnailUri = "https://gateway.pinata.cloud/ipfs/QmU2DQfKz88LjH25p2pDrEfVndZ7bTXRtsXetE7UBNRrNh";
-    }
+    constructor() ERC721("My Blind Box - Zai Zainal", "MBB") {}
 
     // add batch
-    function addBatch(uint256 _batchId, string memory _name, uint256 _releaseDate, uint256 _totalSupply, uint256 _price, string memory _thumbnailUri)
+    function addBatch(uint256 _batchId, string memory _name, uint256 _releaseDate, uint256 _totalSupply, uint256 _price, string memory _thumbnailUri, string memory _metadataUri)
         public
         onlyOwner
     {
@@ -77,21 +44,7 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
         batchs[_batchId].total_sold = 0;
         batchs[_batchId].price = _price; // wei
         batchs[_batchId].thumbnailUri = _thumbnailUri; 
-    }
-
-    // update metadata uri per batch
-    function updateMetadataUri(uint256 _batchId, string memory _uri)
-        public
-        onlyOwner
-    {
-        // check valid batch Id
-        checkBatch(_batchId);
-
-        // check current metadata uri
-        bytes memory metadataUri = bytes(batchs[_batchId].metadataUri);
-        require(metadataUri.length == 0, "Batch metadata uri already set.");
-
-        batchs[_batchId].metadataUri = _uri;
+        batchs[_batchId].metadataUri = _metadataUri; 
     }
 
     // set reveal random number for each batch
@@ -160,15 +113,6 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
         _tokenIdCounter.increment();
         uint256 tokenID = _tokenIdCounter.current();
         _safeMint(msg.sender, tokenID); //mint the token
-
-        // mapping data into buyerCollections
-        buyerCollections memory buyerCollection = buyerCollections(
-            _batchId,
-            tokenID,
-            0,
-            false
-        );
-        AllBuyerCollections[msg.sender].push(buyerCollection);
     }
 
     function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
@@ -200,7 +144,7 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
     }
 
     // get batch based on token ID
-    function getBatch(uint256 _tokenID) public view returns(uint256) {
+    function getBatch(uint256 _tokenID) private view returns(uint256) {
         require(_exists(_tokenID), "Token ID not exist.");
 
         if(_tokenID <= 1111) {
@@ -245,43 +189,41 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
         payable(owner()).transfer(address(this).balance);
     }
 
-    
 
-    // get single collection by index (use myTotalCollections as reference)
-    function myCollections(uint256 _index)
-        public
-        returns (
-            uint256,
-            uint256,
-            uint256,
-            bool
-        )
-    {
-        // check collection based on address
-        require(myTotalCollections() > 0, "No purchase record.");
 
-        // check index
-        require(myTotalCollections() > _index, "Index is invalid.");
+    // -------------------------------------------------------------------------------------------
+    // NOTE: ignore this section, i just use this as shortcut for testing.
+    // -------------------------------------------------------------------------------------------
 
-        //update uri, if batch has sold out, batch has release and 3 days after sold out
-        if (
-            AllBuyerCollections[msg.sender][_index].reveal == false && // check existing tokenUri
-            canBatchReveal(AllBuyerCollections[msg.sender][_index].batchId)
-        ) {
-            //update to reveal - mark as reveal
-            AllBuyerCollections[msg.sender][_index].reveal = true;
-        }
+    //setup testing
+    function setupTesting() public onlyOwner {
+        batchs[1].name = "Batch 1";
+        batchs[1].release_date = 1651334400; //Wednesday, 1 May 2022 00:00:00 - testing only
+        batchs[1].total_supply = 2;
+        batchs[1].total_sold = 0;
+        batchs[1].price = 100000000000000; // wei
+        batchs[1].thumbnailUri = "https://gateway.pinata.cloud/ipfs/QmU2DQfKz88LjH25p2pDrEfVndZ7bTXRtsXetE7UBNRrNh";
+        batchs[1].metadataUri = "https://ikzttp.mypinata.cloud/ipfs/QmQFkLSQysj94s5GvTHPyzTxrawwtjgiiYS2TBLgrvw8CW";
 
-        return (
-            AllBuyerCollections[msg.sender][_index].batchId,
-            AllBuyerCollections[msg.sender][_index].tokenID,
-            AllBuyerCollections[msg.sender][_index].tokenUri,
-            AllBuyerCollections[msg.sender][_index].reveal
-        );
+        batchs[2].name = "Batch 2";
+        batchs[2].release_date = 1655827200; //Wednesday, 22 June 2022 00:00:00
+        batchs[2].total_supply = 10;
+        batchs[2].total_sold = 0;
+        batchs[2].price = 100000000000000; // wei
+        batchs[1].thumbnailUri = "https://gateway.pinata.cloud/ipfs/QmU2DQfKz88LjH25p2pDrEfVndZ7bTXRtsXetE7UBNRrNh";
+        batchs[2].metadataUri = "https://ikzttp.mypinata.cloud/ipfs/QmQFkLSQysj94s5GvTHPyzTxrawwtjgiiYS2TBLgrvw8CW";
+
+        batchs[3].name = "Batch 3";
+        batchs[3].release_date = 1656604800; //Wednesday, 1 July 2022 00:00:00
+        batchs[3].total_supply = 15;
+        batchs[3].total_sold = 0;
+        batchs[3].price = 100000000000000; // wei
+        batchs[3].thumbnailUri = "https://gateway.pinata.cloud/ipfs/QmU2DQfKz88LjH25p2pDrEfVndZ7bTXRtsXetE7UBNRrNh";
+        batchs[3].metadataUri = "https://ikzttp.mypinata.cloud/ipfs/QmQFkLSQysj94s5GvTHPyzTxrawwtjgiiYS2TBLgrvw8CW";
     }
 
-    // get total collection
-    function myTotalCollections() public view returns (uint256) {
-        return AllBuyerCollections[msg.sender].length;
+    // set sold out for specific batch
+    function manualSoldOutByBatch(uint256 batchId, uint256 _datetimeSoldOut) public onlyOwner {
+        batchs[batchId].datetimeSoldOut = _datetimeSoldOut; //1651913531 - Wednesday, 7 May 2022 00:00:00 - testing only
     }
 }
