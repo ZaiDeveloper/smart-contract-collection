@@ -55,7 +55,13 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
         require(batchs[_batchId].randomNumber == 0, "Has set.");
 
         // has meet requirement
-        canReveal(_batchId);
+        uint256 delayDays = 3 days; // 1209600 or 2*7*24*60*60
+        require(
+            batchs[_batchId].datetimeSoldOut != 0 && //check sold out
+                block.timestamp >=
+                (batchs[_batchId].datetimeSoldOut + delayDays),
+            "must 3 days after sold out."
+        );
 
         // generate and set 1 random number from 1-10
         batchs[_batchId].randomNumber = uint8(
@@ -76,7 +82,10 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
         require(msg.sender != owner(), "Owner not allow.");
 
         // check valid batch Id
-        checkBatch(_batchId);
+        require(
+            _batchId != 1 || _batchId != 2 || _batchId != 3,
+            "Batch Id not valid."
+        );
 
         //check release date
         require(
@@ -156,26 +165,6 @@ contract NftBlinkBox is ERC721, ERC721URIStorage, Ownable {
             return 2;
         }
         return 3;
-    }
-
-    // check batch validation
-    function checkBatch(uint8 _batchId) private pure {
-        require(
-            _batchId != 1 || _batchId != 2 || _batchId != 3,
-            "Batch Id not valid."
-        );
-    }
-
-    // check requirement batch reveal - must sold out, after 3 days and after release date
-    function canReveal(uint8 _batchId) private view {
-        uint256 delayDays = 3 days; // 1209600 or 2*7*24*60*60
-
-        require(
-            batchs[_batchId].datetimeSoldOut != 0 && //check sold out
-                block.timestamp >=
-                (batchs[_batchId].datetimeSoldOut + delayDays),
-            "must 3 days after sold out."
-        );
     }
 
     // returning the contract's balance in wei
